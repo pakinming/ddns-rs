@@ -1,3 +1,5 @@
+use std::vec;
+
 use rand::Rng;
 use reqwest;
 use tokio::time::{self, Duration};
@@ -35,6 +37,8 @@ async fn main() {
     let mut previous_ip = String::new();
     let check_interval = Duration::from_secs(3);
     let mut interval = time::interval(check_interval);
+    let duck_pakino = "https://www.duckdns.org/update?domains=pakino&token=c3d640a2-30e9-4535-bcb3-dc252b869779&ip=";
+    let duck_tathata = "https://www.duckdns.org/update?domains=tathata&token=c3d640a2-30e9-4535-bcb3-dc252b869779&ip=";
 
     loop {
         interval.tick().await;
@@ -43,33 +47,54 @@ async fn main() {
             Ok(current_ip) => {
                 if current_ip != previous_ip {
                     info!(
-                        "IP Changed: Old IP = {}, New IP = {}",
+                        "##### IP Changed: Old IP = {}, New IP = {}  #####",
                         previous_ip, current_ip
                     );
+
+                    let pakino = reqwest::get(duck_pakino)
+                        .await
+                        .unwrap()
+                        .text()
+                        .await
+                        .unwrap();
+                    let tathata = reqwest::get(duck_tathata)
+                        .await
+                        .unwrap()
+                        .text()
+                        .await
+                        .unwrap();
+                    info!("{}", "#".repeat(20));
+                    info!("Pakino Update DNS {}", pakino);
+                    info!("Tathata Update DNS {}", tathata);
+                    info!("{}", "#".repeat(20));
+                    
+
                     previous_ip = current_ip;
                 } else {
                     info!("IP Unchanged: {}", current_ip);
                 }
             }
+
             Err(e) => {
                 error!("Error fetching public IP: {}", e);
             }
         }
     }
 }
-
 // Function to fetch the public IP using a public API
 async fn get_public_ip() -> Result<String, reqwest::Error> {
     let mut rng = rand::thread_rng();
+    let url = vec![
+        "https://api.ipify.org",
+        "https://ipinfo.io/ip",
+        "https://checkip.amazonaws.com",
+    ];
 
-    let url = if rng.gen_bool(0.5) {
-        "https://api.ipify.org"
-    } else {
-        "https://ipinfo.io/ip"
-    };
-    info!("url: {}", url);
+    // Randomly select one of the URLs
+    let i = rng.gen_range(0..url.len());
 
-    let response = reqwest::get(url).await?.text().await?;
-    info!("response: {}", response);
+    let response = reqwest::get(url[i]).await?.text().await?;
+
+    info!("Check IP: {} {}", url[i], response.trim(),);
     Ok(response.trim().to_string())
 }
