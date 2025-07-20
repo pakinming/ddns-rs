@@ -1,2 +1,6 @@
 /target
 /logs
+justfile
+.env
+.DS_Store
+

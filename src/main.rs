@@ -30,10 +30,19 @@ async fn main() {
         .with(console_layer)
         .init();
 
-    info!("Starting IP change detection...");
+    //load .env
+    dotenvy::dotenv().ok();
+    let duration = std::env::var("doration")
+        .unwrap_or_else(|_| "86400".to_string())
+        .parse::<u64>()
+        .unwrap_or(30);
+    // Send a notification to the discord
+    let discord_webhook_url = std::env::var("discord_webhook_url").unwrap();
+
+    info!("Starting IP change detection");
 
     let mut previous_ip = String::new();
-    let check_interval = Duration::from_secs(3);
+    let check_interval = Duration::from_secs(duration);
     let mut interval = time::interval(check_interval);
 
     loop {
@@ -46,9 +55,19 @@ async fn main() {
                         "IP Changed: Old IP = {}, New IP = {}",
                         previous_ip, current_ip
                     );
-                    previous_ip = current_ip;
+                    previous_ip = current_ip.clone();
+
+                    let client = reqwest::Client::new();
+                    let payload = serde_json::json!({
+                        "content": format!("IP Changed: Old IP = {}, New IP = {}", previous_ip, &current_ip)
+                    });
+                    let _ = client
+                        .post(&discord_webhook_url)
+                        .json(&payload)
+                        .send()
+                        .await;
                 } else {
-                    info!("IP Unchanged: {}", current_ip);
+                    // info!("IP Unchanged: {}", current_ip);
                 }
             }
             Err(e) => {
@@ -67,9 +86,9 @@ async fn get_public_ip() -> Result<String, reqwest::Error> {
     } else {
         "https://ipinfo.io/ip"
     };
-    info!("url: {}", url);
+    // info!("url: {}", url);
 
     let response = reqwest::get(url).await?.text().await?;
-    info!("response: {}", response);
+    // info!("response: {}", response);
     Ok(response.trim().to_string())
 }
