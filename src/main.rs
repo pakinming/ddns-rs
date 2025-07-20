@@ -33,9 +33,9 @@ async fn main() {
     //load .env
     dotenvy::dotenv().ok();
     let duration = std::env::var("doration")
-        .unwrap_or_else(|_| "86400".to_string())
+        .unwrap_or_else(|_| "3600".to_string())
         .parse::<u64>()
-        .unwrap_or(30);
+        .unwrap_or(3600);
     // Send a notification to the discord
     let discord_webhook_url = std::env::var("discord_webhook_url").unwrap();
 
@@ -47,27 +47,24 @@ async fn main() {
 
     loop {
         interval.tick().await;
-
         match get_public_ip().await {
             Ok(current_ip) => {
+                let client = reqwest::Client::new();
                 if current_ip != previous_ip {
                     info!(
                         "IP Changed: Old IP = {}, New IP = {}",
                         previous_ip, current_ip
                     );
-                    previous_ip = current_ip.clone();
 
-                    let client = reqwest::Client::new();
                     let payload = serde_json::json!({
-                        "content": format!("IP Changed: Old IP = {}, New IP = {}", previous_ip, &current_ip)
+                        "content": format!(" 🥳 New IP [{}]  😓 Old IP [{}]",&current_ip, previous_ip )
                     });
                     let _ = client
                         .post(&discord_webhook_url)
                         .json(&payload)
                         .send()
                         .await;
-                } else {
-                    // info!("IP Unchanged: {}", current_ip);
+                    previous_ip = current_ip.clone();
                 }
             }
             Err(e) => {
@@ -79,7 +76,9 @@ async fn main() {
 
 // Function to fetch the public IP using a public API
 async fn get_public_ip() -> Result<String, reqwest::Error> {
+    let discord_webhook_url = std::env::var("discord_webhook_url").unwrap();
     let mut rng = rand::thread_rng();
+    let client = reqwest::Client::new();
 
     let url = if rng.gen_bool(0.5) {
         "https://api.ipify.org"
@@ -90,5 +89,15 @@ async fn get_public_ip() -> Result<String, reqwest::Error> {
 
     let response = reqwest::get(url).await?.text().await?;
     // info!("response: {}", response);
+
+    let payload = serde_json::json!({
+        "content": format!("💢 IP [{}]", response.trim().to_owned() )
+    });
+    let _ = client
+        .post(&discord_webhook_url)
+        .json(&payload)
+        .send()
+        .await;
+
     Ok(response.trim().to_string())
 }
